@@ -1,0 +1,22 @@
+[0;1;32m●[0m docker.service - Docker Application Container Engine
+     Loaded: loaded (/lib/systemd/system/docker.service; enabled; vendor preset: enabled)
+     Active: [0;1;32mactive (running)[0m since Mon 2025-10-20 17:42:38 -03; 58min ago
+TriggeredBy: [0;1;32m●[0m docker.socket
+       Docs: https://docs.docker.com
+   Main PID: 13751 (dockerd)
+      Tasks: 14
+     Memory: 22.3M
+        CPU: 1.282s
+     CGroup: /system.slice/docker.service
+             └─13751 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+oct 20 17:42:37 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:37.961286086-03:00" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.043836146-03:00" level=info msg="Creating a containerd client" address=/run/containerd/containerd.sock timeout=1m0s
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.144555621-03:00" level=info msg="Loading containers: start."
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.643680588-03:00" level=info msg="Loading containers: done."
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.690685549-03:00" level=info msg="Docker daemon" commit=f8215cc containerd-snapshotter=false storage-driver=overlay2 version=28.5.1
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.690899884-03:00" level=info msg="Initializing buildkit"
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.741534253-03:00" level=info msg="Completed buildkit initialization"
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.751801221-03:00" level=info msg="Daemon has completed initialization"
+oct 20 17:42:38 fliaolejnik14 dockerd[13751]: time="2025-10-20T17:42:38.751902147-03:00" level=info msg="API listen on /run/docker.sock"
+oct 20 17:42:38 fliaolejnik14 systemd[1]: Started Docker Application Container Engine.

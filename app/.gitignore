@@ -1,0 +1,15 @@
+# Dependencias de Node (¡MUY IMPORTANTE!)
+node_modules/
+
+# Carpetas de caché y build de Expo
+.expo/
+web-build/
+dist/
+
+# Archivos de entorno (contienen secretos, NUNCA los subas)
+.env
+
+# Logs de errores
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
