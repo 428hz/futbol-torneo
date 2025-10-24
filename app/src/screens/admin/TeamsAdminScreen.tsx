@@ -1,91 +1,105 @@
-// app/src/screens/admin/TeamsAdminScreen.tsx
-
 import React from 'react';
 import { View, Text, TextInput, Button, FlatList, Alert } from 'react-native';
-import { useGetTeamsQuery, useCreateTeamMutation, useUpdateTeamMutation, useDeleteTeamMutation } from '../../services/api';
+import {
+  useGetTeamsQuery,
+  useCreateTeamMutation,
+  useUpdateTeamMutation,
+  useDeleteTeamMutation,
+} from '../../api'; // <— CAMBIO: antes era ../../services/api
+import ConfirmDialog from '../../components/ConfirmDialog';
+import PromptDialog from '../../components/PromptDialog';
 
 export default function TeamsAdminScreen() {
-  const { data: teams, isLoading: isLoadingTeams } = useGetTeamsQuery();
+  const { data, refetch, isFetching } = useGetTeamsQuery();
   const [name, setName] = React.useState('');
   const [crestUrl, setCrestUrl] = React.useState('');
-  const [editId, setEditId] = React.useState<number | null>(null);
-  const [editName, setEditName] = React.useState('');
 
-  const [createTeam, { isLoading: isCreating }] = useCreateTeamMutation();
-  const [updateTeam, { isLoading: isUpdating }] = useUpdateTeamMutation();
+  const [createTeam, { isLoading: creating }] = useCreateTeamMutation();
+  const [updateTeam] = useUpdateTeamMutation();
   const [deleteTeam] = useDeleteTeamMutation();
 
-  const add = async () => {
-    if (!name.trim()) return;
+  const [confirmVisible, setConfirmVisible] = React.useState(false);
+  const [pendingDelete, setPendingDelete] = React.useState<{ id: number; name: string } | null>(null);
+
+  const [editVisible, setEditVisible] = React.useState(false);
+  const [editing, setEditing] = React.useState<any | null>(null);
+
+  const onCreate = async () => {
     try {
+      if (!name.trim()) return Alert.alert('Falta nombre', 'Ingresá un nombre de equipo.');
       await createTeam({ name: name.trim(), crestUrl: crestUrl.trim() || undefined }).unwrap();
-      setName(''); setCrestUrl('');
-    } catch (e: any) { Alert.alert('Error', e?.data?.error || 'No se pudo crear'); }
+      setName(''); setCrestUrl(''); refetch();
+    } catch (e: any) {
+      Alert.alert('Error', e?.data?.error || 'No se pudo crear');
+    }
   };
 
-  const saveRename = async () => {
-    if (!editId) return;
+  const openEdit = (team: any) => { setEditing(team); setEditVisible(true); };
+  const submitEdit = async (values: Record<string, string>) => {
     try {
-      await updateTeam({ id: editId, name: editName }).unwrap();
-      setEditId(null); setEditName('');
-    } catch { Alert.alert('Error', 'No se pudo actualizar'); }
+      const newName = (values.name ?? '').trim();
+      const newCrest = (values.crestUrl ?? '').trim();
+      if (!newName) return Alert.alert('Falta nombre', 'Ingresá un nombre de equipo.');
+      await updateTeam({ id: editing.id, name: newName, crestUrl: newCrest || undefined }).unwrap();
+      setEditVisible(false); setEditing(null); refetch();
+    } catch (e: any) {
+      Alert.alert('Error', e?.data?.error || 'No se pudo actualizar');
+    }
   };
 
-  // --- FUNCIÓN DE BORRADO CON ALERTA ---
-  const handleDelete = (id: number, teamName: string) => {
-    Alert.alert(
-      "Confirmar Borrado", // Título de la alerta
-      `¿Estás seguro de que quieres borrar el equipo "${teamName}"? Esta acción no se puede deshacer.`, // Mensaje
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        { 
-          text: "Sí, Borrar",
-          onPress: async () => {
-            try {
-              await deleteTeam(id).unwrap();
-            } catch {
-              Alert.alert('Error', 'No se pudo borrar el equipo');
-            }
-          },
-          style: "destructive"
-        }
-      ]
-    );
+  const askDelete = (team: any) => { setPendingDelete({ id: team.id, name: team.name }); setConfirmVisible(true); };
+  const doDelete = async () => {
+    if (!pendingDelete) return;
+    try { await deleteTeam(pendingDelete.id).unwrap(); setConfirmVisible(false); setPendingDelete(null); refetch(); }
+    catch (e:any) { setConfirmVisible(false); Alert.alert('Error', e?.data?.error || 'No se pudo eliminar'); }
   };
 
   return (
-    <View style={{ flex: 1, padding: 12 }}>
-      <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Nuevo equipo</Text>
-      <TextInput placeholder="Nombre" value={name} onChangeText={setName} style={{ borderWidth: 1, marginVertical: 6, padding: 8 }} />
-      <TextInput placeholder="URL escudo (opcional)" value={crestUrl} onChangeText={setCrestUrl} style={{ borderWidth: 1, marginVertical: 6, padding: 8 }} />
-      <Button title={isCreating ? "Agregando..." : "Agregar"} onPress={add} disabled={isCreating} />
-      
-      <Text style={{ marginTop: 12, fontWeight: 'bold' }}>Equipos</Text>
+    <View style={{ padding: 16 }}>
+      <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Nuevo equipo</Text>
+      <TextInput placeholder="Nombre del equipo" value={name} onChangeText={setName} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
+      <TextInput placeholder="Escudo (URL, opcional)" value={crestUrl} onChangeText={setCrestUrl} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
+      <Text style={{ color: '#666', marginBottom: 8 }}>Pegá una URL de imagen (https://.../logo.png). Luego agregamos “Subir imagen”.</Text>
+      <Button title={creating ? 'Creando...' : 'Crear'} onPress={onCreate} />
+
+      <Text style={{ fontWeight: 'bold', fontSize: 18, marginVertical: 12 }}>Listado</Text>
       <FlatList
-        data={teams || []}
-        keyExtractor={(i) => String(i.id)}
-        refreshing={isLoadingTeams}
+        refreshing={isFetching}
+        onRefresh={refetch}
+        data={data || []}
+        keyExtractor={(t) => String(t.id)}
         renderItem={({ item }) => (
-          <View style={{ paddingVertical: 6 }}>
+          <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
             <Text>{item.name}</Text>
-            {editId === item.id ? (
-              <View>
-                <TextInput placeholder="Nuevo nombre" value={editName} onChangeText={setEditName} style={{ borderWidth: 1, marginVertical: 6, padding: 8 }} />
-                <Button title={isUpdating ? "Guardando..." : "Guardar"} onPress={saveRename} disabled={isUpdating}/>
-                <Button title="Cancelar" onPress={() => { setEditId(null); setEditName(''); }} />
-              </View>
-            ) : (
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                <Button title="Renombrar" onPress={() => { setEditId(item.id); setEditName(item.name); }} />
-                {/* Llamamos a la nueva función handleDelete */}
-                <Button title="Borrar" color="red" onPress={() => handleDelete(item.id, item.name)} />
-              </View>
-            )}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              <Button title="Editar" onPress={() => openEdit(item)} />
+              <Button title="Eliminar" color="#c00" onPress={() => askDelete(item)} />
+            </View>
           </View>
         )}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      />
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        title="Eliminar equipo"
+        message={`¿Eliminar "${pendingDelete?.name}"? También impacta partidos y jugadores.`}
+        onConfirm={doDelete}
+        onCancel={() => { setConfirmVisible(false); setPendingDelete(null); }}
+      />
+
+      <PromptDialog
+        visible={editVisible}
+        title="Editar equipo"
+        fields={[
+          { key: 'name', label: 'Nombre' },
+          { key: 'crestUrl', label: 'Escudo (URL, opcional)', placeholder: 'https://...' },
+        ]}
+        initialValues={{ name: editing?.name, crestUrl: editing?.crestUrl }}
+        onCancel={() => { setEditVisible(false); setEditing(null); }}
+        onSubmit={submitEdit}
+        confirmText="Guardar"
+        cancelText="Cancelar"
       />
     </View>
   );
