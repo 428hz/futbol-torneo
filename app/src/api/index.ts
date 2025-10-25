@@ -2,14 +2,29 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { API_URL } from '../config';
 
 let token: string | null = null;
+
+// Cargar token inmediatamente en web (antes de la primera request)
+try {
+  if (typeof window !== 'undefined') {
+    const t = window.localStorage.getItem('token');
+    if (t) token = t;
+    // Atajo para setear token desde consola
+    (window as any).setToken = (v: string | null) => { token = v; if (v) window.localStorage.setItem('token', v); else window.localStorage.removeItem('token'); };
+  }
+} catch {}
+
+// API pública para setear token desde la app
 export const setToken = (t: string | null) => { token = t; };
-if (typeof window !== 'undefined') { (window as any).setToken = setToken; }
 
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
     baseUrl: API_URL,
     prepareHeaders: (headers) => {
+      // Si no hay token en memoria, intentar leerlo de localStorage
+      if (!token && typeof window !== 'undefined') {
+        try { token = window.localStorage.getItem('token'); } catch {}
+      }
       if (token) headers.set('authorization', `Bearer ${token}`);
       return headers;
     }
@@ -80,7 +95,7 @@ export const api = createApi({
       ]
     }),
 
-    // Equipos (ABM)
+    // Equipos
     createTeam: builder.mutation<any, { name: string; crestUrl?: string }>({
       query: (body) => ({ url: '/teams', method: 'POST', body }),
       invalidatesTags: [{ type:'Teams', id:'LIST' }, { type:'Stats', id:'STANDINGS' }]
@@ -98,7 +113,7 @@ export const api = createApi({
       ]
     }),
 
-    // Jugadores (ABM)
+    // Jugadores
     createPlayer: builder.mutation<any, {
       firstName: string; lastName: string; age: number; position: string; jerseyNumber: number; teamId: number; photoUrl?: string;
     }>({

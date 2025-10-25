@@ -10,8 +10,7 @@ import stats from './stats';
 import venues from './venues';
 import notifications from './notifications';
 import playersUpload from './players-upload';
-// OJO: el archivo es match-event.ts (singular)
-import matchEvents from './match-event';
+import matchEvents from './match-event'; // archivo singular
 
 const router = Router();
 
@@ -40,7 +39,7 @@ router.use('/venues', venues);
 router.use('/notifications', notifications);
 router.use('/upload', playersUpload);
 
-// Montar endpoints de eventos bajo /matches (ej: /matches/:id/events)
+// Eventos bajo /matches/:id/events
 router.use('/matches', matchEvents);
 
 export default router;

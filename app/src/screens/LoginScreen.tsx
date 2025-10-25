@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, Button, Alert, Platform } from 'react-native';
-import { setToken } from '../services/api';
+import { setToken } from '../api'; // IMPORTANTE: antes era '../services/api'
 import { API_URL } from '../config';
 import * as Notifications from 'expo-notifications';
 import * as Google from 'expo-auth-session/providers/google';
@@ -20,7 +20,6 @@ export default function LoginScreen({ navigation }: any) {
     (Constants?.expoConfig as any)?.extra?.google ||
     (Constants as any)?.manifest2?.extra?.google;
 
-  // Config mínima: clientId (web) + scopes + id_token
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: googleExtra?.webClientId || googleExtra?.expoClientId,
     scopes: ['openid', 'profile', 'email'],
@@ -31,10 +30,7 @@ export default function LoginScreen({ navigation }: any) {
     const handleGoogle = async () => {
       if (response?.type === 'success') {
         const idToken = response.authentication?.idToken;
-        if (!idToken) {
-          Alert.alert('Error', 'No se recibió idToken de Google');
-          return;
-        }
+        if (!idToken) { Alert.alert('Error', 'No se recibió idToken de Google'); return; }
         try {
           const pushToken = await getPushToken();
           const res = await fetch(`${API_URL}/auth/google/token`, {
@@ -85,27 +81,13 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <View style={{ padding: 16 }}>
       <Text style={{ fontSize: 28, fontWeight: 'bold', marginBottom: 16 }}>Iniciar sesión</Text>
-      <TextInput
-        placeholder="Email"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 8 }}
-      />
-      <TextInput
-        placeholder="Contraseña"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 16 }}
-      />
+      <TextInput placeholder="Email" autoCapitalize="none" value={email} onChangeText={setEmail}
+        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 8 }} />
+      <TextInput placeholder="Contraseña" secureTextEntry value={password} onChangeText={setPassword}
+        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 16 }} />
       <Button title={loading ? 'Ingresando...' : 'Ingresar'} onPress={onLogin} />
       <View style={{ height: 16 }} />
-      <Button
-        title={'Continuar con Google'}
-        onPress={() => promptAsync()}
-        disabled={!request}
-      />
+      <Button title={'Continuar con Google'} onPress={() => promptAsync()} disabled={!request} />
     </View>
   );
 }
