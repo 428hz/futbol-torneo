@@ -5,44 +5,31 @@
     "scheme": "futboltorneo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
       [
-        "expo-notifications",
+        "expo-build-properties",
         {
-          "icon": "./assets/notification-icon.png"
+          "android": { "kotlinVersion": "2.0.21", "minSdkVersion": 24 }
         }
       ],
-      "expo-web-browser"
+      ["expo-notifications", {}]
     ],
-    "ios": {
-      "supportsTablet": false
-    },
+    "ios": { "supportsTablet": false },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "POST_NOTIFICATIONS"
-      ]
+      "package": "com.tuorg.futboltorneo",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"]
     },
-    "web": {
-      "bundler": "metro"
-    },
+    "web": { "bundler": "metro" },
     "extra": {
       "google": {
         "expoClientId": "206638731687-fde99gmkh0tccbsrql5cq1p69mb96mb6.apps.googleusercontent.com",
         "iosClientId": "PASTE_IOS_CLIENT_ID.apps.googleusercontent.com",
-        "androidClientId": "PASTE_ANDROID_CLIENT_ID.apps.googleusercontent.com",
+        "androidClientId": "479977776201-g0ssvnha60m8pc3ssasf1gofaolso85l.apps.googleusercontent.com",
         "webClientId": "206638731687-fde99gmkh0tccbsrql5cq1p69mb96mb6.apps.googleusercontent.com"
       },
-      "eas": {
-        "projectId": "replace-with-your-id"
-      }
-    }
+      "eas": { "projectId": "c48630b9-0a85-4bfc-94c4-713ee1fab46d" }
+    },
+    "owner": "ianiam"
   }
 }

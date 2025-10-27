@@ -5,7 +5,18 @@ import RootNavigator from './src/navigation';
 import { store } from './src/store';
 import { setToken } from './src/api';
 
+// Push token context + registrador (dentro de src/)
+import { PushTokenProvider, usePushToken } from './src/context/PushTokenContext';
+import PushTokenRegistrar from './src/context/PushTokenRegistrar';
+
+function RegistrarBridge() {
+  // Conecta el registrador con el contexto
+  const { setPushToken } = usePushToken();
+  return <PushTokenRegistrar onToken={setPushToken} />;
+}
+
 export default function App() {
+  // Cargar JWT guardado para que la API agregue Authorization
   React.useEffect(() => {
     try {
       const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -32,7 +43,11 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <RootNavigator />
+      <PushTokenProvider>
+        {/* Registra el push token (iOS/Android). En web devuelve null y no rompe. */}
+        <RegistrarBridge />
+        <RootNavigator />
+      </PushTokenProvider>
     </Provider>
   );
 }

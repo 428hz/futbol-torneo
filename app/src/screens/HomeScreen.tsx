@@ -1,36 +1,34 @@
 import React from 'react';
-import { View, Text, Button, FlatList } from 'react-native';
-import { useGetUpcomingMatchesQuery } from '../services/api';
+import { View, Text, ScrollView } from 'react-native';
+import { useGetUpcomingMatchesQuery, useGetFixtureQuery, useGetCardsByPlayerQuery, useGetCardsByTeamQuery } from '../api';
 
 export default function HomeScreen() {
-  const { data, refetch, isFetching } = useGetUpcomingMatchesQuery();
-  const upcoming = data || [];
+  const { data: upcoming } = useGetUpcomingMatchesQuery();
+  const { data: fixture } = useGetFixtureQuery();
+  const { data: cardsPlayers } = useGetCardsByPlayerQuery();
+  const { data: cardsTeams } = useGetCardsByTeamQuery();
 
   return (
-    <View style={{ flex:1, padding:16 }}>
-      <Text style={{ fontSize:22, fontWeight:'700', marginBottom:8 }}>Próximos partidos</Text>
-      <View style={{ marginBottom:8 }}>
-        <Button title={isFetching ? 'Actualizando...' : 'Refrescar'} onPress={()=>refetch()} />
-      </View>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+      <Text style={{ fontWeight:'bold', fontSize: 18, marginBottom: 8 }}>Próximos partidos</Text>
+      {(upcoming||[]).slice(0,5).map(m=>(
+        <Text key={m.id}>#{m.id} {m.homeTeam.name} vs {m.awayTeam.name} · {new Date(m.datetime).toLocaleString()}</Text>
+      ))}
 
-      {upcoming.length === 0 ? (
-        <Text style={{ color:'#666' }}>
-          No hay partidos próximos. Creá uno desde Admin → Partidos con fecha a futuro (por ej. hoy + 2 hs).
-        </Text>
-      ) : (
-        <FlatList
-          data={upcoming}
-          keyExtractor={(m)=>String(m.id)}
-          renderItem={({ item }) => (
-            <View style={{ padding:12, borderWidth:1, borderColor:'#eee', borderRadius:8, marginBottom:8 }}>
-              <Text style={{ fontWeight:'600' }}>{item.homeTeam.name} vs {item.awayTeam.name}</Text>
-              <Text>{new Date(item.datetime).toLocaleString()} · {item.venue?.name}</Text>
-              <Text style={{ color:'#666' }}>Estado: {item.status}</Text>
-            </View>
-          )}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        />
-      )}
-    </View>
+      <Text style={{ fontWeight:'bold', fontSize: 18, marginVertical: 12 }}>Tarjetas por jugador (Top)</Text>
+      {(cardsPlayers||[]).slice(0,10).map((c:any)=>(
+        <Text key={c.playerId}>{c.name} ({c.team}) · Amarillas: {c.yellow} · Rojas: {c.red} · Total: {c.total}</Text>
+      ))}
+
+      <Text style={{ fontWeight:'bold', fontSize: 18, marginVertical: 12 }}>Tarjetas por equipo</Text>
+      {(cardsTeams||[]).slice(0,10).map((c:any)=>(
+        <Text key={c.teamId}>{c.teamName} · Amarillas: {c.yellow} · Rojas: {c.red} · Total: {c.total}</Text>
+      ))}
+
+      <Text style={{ fontWeight:'bold', fontSize: 18, marginVertical: 12 }}>Últimos partidos</Text>
+      {(fixture||[]).slice(-5).map(m=>(
+        <Text key={m.id}>#{m.id} {m.homeTeam.name} {m.homeScore} - {m.awayScore} {m.awayTeam.name}</Text>
+      ))}
+    </ScrollView>
   );
 }

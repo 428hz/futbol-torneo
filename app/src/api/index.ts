@@ -3,17 +3,20 @@ import { API_URL } from '../config';
 
 let token: string | null = null;
 
-// Cargar token inmediatamente en web (antes de la primera request)
 try {
   if (typeof window !== 'undefined') {
     const t = window.localStorage.getItem('token');
     if (t) token = t;
-    // Atajo para setear token desde consola
-    (window as any).setToken = (v: string | null) => { token = v; if (v) window.localStorage.setItem('token', v); else window.localStorage.removeItem('token'); };
+    (window as any).setToken = (v: string | null) => {
+      token = v;
+      if (typeof window !== 'undefined') {
+        if (v) window.localStorage.setItem('token', v);
+        else window.localStorage.removeItem('token');
+      }
+    };
   }
 } catch {}
 
-// API pública para setear token desde la app
 export const setToken = (t: string | null) => { token = t; };
 
 export const api = createApi({
@@ -21,7 +24,6 @@ export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: API_URL,
     prepareHeaders: (headers) => {
-      // Si no hay token en memoria, intentar leerlo de localStorage
       if (!token && typeof window !== 'undefined') {
         try { token = window.localStorage.getItem('token'); } catch {}
       }
@@ -82,17 +84,33 @@ export const api = createApi({
     }),
 
     // Eventos de partido
+    getMatchEvents: builder.query<any[], number>({
+      query: (matchId) => `/matches/${matchId}/events`,
+      providesTags: (r,e,matchId)=>[{ type:'MatchEvents' as const, id: matchId }]
+    }),
     createMatchEvent: builder.mutation<any, { matchId: number; teamId: number; playerId?: number; type: 'goal'|'yellow'|'red'; minute?: number }>({
       query: ({ matchId, ...body }) => ({ url: `/matches/${matchId}/events`, method: 'POST', body }),
       invalidatesTags: (r,e,arg)=>[
-        { type:'Matches', id: arg.matchId }, { type:'Matches', id:'LIST' }, { type:'MatchEvents', id: arg.matchId }
+        { type:'Matches', id: arg.matchId }, { type:'Matches', id:'LIST' }, { type:'MatchEvents', id: arg.matchId }, { type:'Stats', id:'TOPSCORERS' }, { type:'Stats', id:'CARDS' }
       ]
     }),
     deleteMatchEvent: builder.mutation<any, { matchId: number; eventId: number }>({
       query: ({ matchId, eventId }) => ({ url: `/matches/${matchId}/events/${eventId}`, method: 'DELETE' }),
       invalidatesTags: (r,e,arg)=>[
-        { type:'Matches', id: arg.matchId }, { type:'Matches', id:'LIST' }, { type:'MatchEvents', id: arg.matchId }
+        { type:'Matches', id: arg.matchId }, { type:'Matches', id:'LIST' }, { type:'MatchEvents', id: arg.matchId }, { type:'Stats', id:'TOPSCORERS' }, { type:'Stats', id:'CARDS' }
       ]
+    }),
+
+    // Borrado de partidos
+    deleteMatch: builder.mutation<void, number>({
+      query: (id) => ({ url: `/matches/${id}`, method: 'DELETE' }),
+      invalidatesTags: (r,e,id)=>[
+        { type:'Matches', id }, { type:'Matches', id:'LIST' }, { type:'Stats', id:'STANDINGS' }
+      ]
+    }),
+    deleteMatchesBulk: builder.mutation<{ deleted: number }, { status?: string; before?: string }>({
+      query: (params) => ({ url: `/matches${buildQuery(params)}`, method: 'DELETE' }),
+      invalidatesTags: [{ type:'Matches', id:'LIST' }, { type:'Stats', id:'STANDINGS' }]
     }),
 
     // Equipos
@@ -125,13 +143,13 @@ export const api = createApi({
     }>>({
       query: ({ id, ...body }) => ({ url: `/players/${id}`, method: 'PUT', body }),
       invalidatesTags: (r,e,arg)=>[
-        { type:'Players', id: arg.id }, { type:'Players', id:'LIST' }, { type:'Stats', id:'TOPSCORERS' }
+        { type:'Players', id: arg.id }, { type:'Players', id:'LIST' }, { type:'Stats', id:'TOPSCORERS' }, { type:'Stats', id:'CARDS' }
       ]
     }),
     deletePlayer: builder.mutation<void, number>({
       query: (id) => ({ url: `/players/${id}`, method: 'DELETE' }),
       invalidatesTags: (r,e,id)=>[
-        { type:'Players', id }, { type:'Players', id:'LIST' }, { type:'Stats', id:'TOPSCORERS' }
+        { type:'Players', id }, { type:'Players', id:'LIST' }, { type:'Stats', id:'TOPSCORERS' }, { type:'Stats', id:'CARDS' }
       ]
     }),
 
@@ -148,8 +166,35 @@ export const api = createApi({
       query: (id) => ({ url: `/users/${id}`, method: 'DELETE' }),
       invalidatesTags: (r,e,id)=>[{ type:'Users', id }, { type:'Users', id:'LIST' }]
     }),
+
+    // Stats
+    getCardsByPlayer: builder.query<any[], void>({
+      query: () => '/stats/cards-by-player',
+      providesTags: [{ type:'Stats', id:'CARDS' }]
+    }),
+    getCardsByTeam: builder.query<any[], void>({
+      query: () => '/stats/cards-by-team',
+      providesTags: [{ type:'Stats', id:'CARDS' }]
+    }),
+    getStandings: builder.query<any[], void>({
+  query: () => '/stats/standings',
+  providesTags: [{ type: 'Stats', id: 'STANDINGS' }],
+}),
+getTopScorers: builder.query<any[], void>({
+  query: () => '/stats/top-scorers',
+  providesTags: [{ type: 'Stats', id: 'TOPSCORERS' }],
+}),
   })
 });
+
+// helper
+function buildQuery(params: Record<string, any> = {}) {
+  const q = Object.entries(params)
+    .filter(([,v])=> v!==undefined && v!=='')
+    .map(([k,v])=> `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  return q ? `?${q}` : '';
+}
 
 export const {
   useLoginMutation,
@@ -161,13 +206,19 @@ export const {
   useGetVenuesQuery,
   useGetUpcomingMatchesQuery,
   useGetFixtureQuery,
+
   useGetUsersQuery,
+  useUpdateUserMutation,
+  useDeleteUserMutation,
 
   useCreateVenueMutation,
 
   useCreateMatchMutation,
   useFinishMatchMutation,
+  useDeleteMatchMutation,
+  useDeleteMatchesBulkMutation,
 
+  useGetMatchEventsQuery,
   useCreateMatchEventMutation,
   useDeleteMatchEventMutation,
 
@@ -179,6 +230,10 @@ export const {
   useUpdatePlayerMutation,
   useDeletePlayerMutation,
 
-  useUpdateUserMutation,
-  useDeleteUserMutation,
+  useGetCardsByPlayerQuery,
+  useGetCardsByTeamQuery,
+
+  useGetStandingsQuery,
+  useGetTopScorersQuery,
+  
 } = api;

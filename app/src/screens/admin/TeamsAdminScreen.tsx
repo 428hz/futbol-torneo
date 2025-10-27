@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, TextInput, Button, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, Button, Alert, ScrollView } from 'react-native';
 import {
   useGetTeamsQuery,
   useCreateTeamMutation,
   useUpdateTeamMutation,
   useDeleteTeamMutation,
-} from '../../api'; // <— CAMBIO: antes era ../../services/api
+} from '../../api';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import PromptDialog from '../../components/PromptDialog';
 
@@ -55,7 +55,7 @@ export default function TeamsAdminScreen() {
   };
 
   return (
-    <View style={{ padding: 16 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
       <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Nuevo equipo</Text>
       <TextInput placeholder="Nombre del equipo" value={name} onChangeText={setName} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
       <TextInput placeholder="Escudo (URL, opcional)" value={crestUrl} onChangeText={setCrestUrl} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
@@ -63,22 +63,15 @@ export default function TeamsAdminScreen() {
       <Button title={creating ? 'Creando...' : 'Crear'} onPress={onCreate} />
 
       <Text style={{ fontWeight: 'bold', fontSize: 18, marginVertical: 12 }}>Listado</Text>
-      <FlatList
-        refreshing={isFetching}
-        onRefresh={refetch}
-        data={data || []}
-        keyExtractor={(t) => String(t.id)}
-        renderItem={({ item }) => (
-          <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
-            <Text>{item.name}</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-              <Button title="Editar" onPress={() => openEdit(item)} />
-              <Button title="Eliminar" color="#c00" onPress={() => askDelete(item)} />
-            </View>
+      {(data || []).map((item:any) => (
+        <View key={item.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
+          <Text>{item.name}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+            <Button title="Editar" onPress={() => openEdit(item)} />
+            <Button title="Eliminar" color="#c00" onPress={() => askDelete(item)} />
           </View>
-        )}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
+        </View>
+      ))}
 
       <ConfirmDialog
         visible={confirmVisible}
@@ -101,6 +94,6 @@ export default function TeamsAdminScreen() {
         confirmText="Guardar"
         cancelText="Cancelar"
       />
-    </View>
+    </ScrollView>
   );
 }

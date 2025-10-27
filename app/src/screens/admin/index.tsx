@@ -6,8 +6,11 @@ import TeamsAdminScreen from './TeamsAdminScreen';
 import PlayersAdminScreen from './PlayersAdminScreen';
 import MatchesAdminScreen from './MatchesAdminScreen';
 import UsersAdminScreen from './UsersAdminScreen';
-// Si querés sumar sedes al menú:
-// import VenuesAdminScreen from './VenuesAdminScreen';
+import NotificationsAdminScreen from './NotificationsAdminScreen';
+
+// Estas dos pantallas viven fuera de la carpeta admin
+import StatsScreen from '../StatsScreen';
+import VenuesMapScreen from '../VenuesMapScreen';
 
 export type AdminStackParamList = {
   AdminMenu: undefined;
@@ -15,11 +18,16 @@ export type AdminStackParamList = {
   AdminPlayers: undefined;
   AdminMatches: undefined;
   AdminUsers: undefined;
-  // AdminVenues: undefined;
+
+  // Nuevas rutas dentro del stack de Admin
+  AdminStats: undefined;
+  AdminVenuesMap: undefined;
+  AdminNotifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
 
+// Export default: el stack de administración
 export default function AdminStack() {
   return (
     <Stack.Navigator initialRouteName="AdminMenu">
@@ -28,7 +36,20 @@ export default function AdminStack() {
       <Stack.Screen name="AdminPlayers" component={PlayersAdminScreen} options={{ title: 'Jugadores (ABM)' }} />
       <Stack.Screen name="AdminMatches" component={MatchesAdminScreen} options={{ title: 'Partidos (ABM)' }} />
       <Stack.Screen name="AdminUsers" component={UsersAdminScreen} options={{ title: 'Usuarios (ABM)' }} />
-      {/* <Stack.Screen name="AdminVenues" component={VenuesAdminScreen} options={{ title: 'Sedes (ABM)' }} /> */}
+
+      {/* Nuevas pantallas dentro del mismo stack de Admin */}
+      <Stack.Screen name="AdminStats" component={StatsScreen} options={{ title: 'Estadísticas' }} />
+      <Stack.Screen name="AdminVenuesMap" component={VenuesMapScreen} options={{ title: 'Mapa de sedes' }} />
+      <Stack.Screen name="AdminNotifications" component={NotificationsAdminScreen} options={{ title: 'Notificaciones' }} />
     </Stack.Navigator>
   );
 }
+
+// Exports con nombre para poder importar desde '../screens/admin'
+export { default as AdminMenuScreen } from './AdminMenuScreen';
+export { default as TeamsAdminScreen } from './TeamsAdminScreen';
+export { default as PlayersAdminScreen } from './PlayersAdminScreen';
+export { default as MatchesAdminScreen } from './MatchesAdminScreen';
+export { default as UsersAdminScreen } from './UsersAdminScreen';
+export { default as VenuesAdminScreen } from './VenuesAdminScreen';
+export { default as NotificationsAdminScreen } from './NotificationsAdminScreen';

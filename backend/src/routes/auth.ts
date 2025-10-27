@@ -2,7 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
+import { requireAuth, requireRole, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -56,6 +57,74 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('LOGIN ERROR', err);
     res.status(500).json({ error: 'Login error' });
+  }
+});
+
+// POST /auth/register
+// - Público: crea FAN con name/email/password (role forzado a fan).
+// - Admin autenticado: puede especificar role ('admin'|'player'|'fan') y teamId.
+router.post('/register', async (req: AuthRequest, res) => {
+  try {
+    const { name, email, password } = req.body ?? {};
+    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+      return res.status(400).json({ error: 'name, email and password are required' });
+    }
+
+    // valores base para todos
+    let role: 'admin'|'player'|'fan' = 'fan';
+    let teamId: number | null | undefined = undefined;
+
+    // si viene admin autenticado, puede especificar role/teamId
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      try {
+        const hdrToken = req.headers.authorization.substring(7);
+        const payload = jwt.verify(hdrToken, process.env.JWT_SECRET as string) as any;
+        if (payload?.role === 'admin') {
+          const r = (req.body?.role || '').trim();
+          if (['admin','player','fan'].includes(r)) role = r as any;
+          if (req.body?.teamId !== undefined && req.body?.teamId !== null && req.body?.teamId !== '') {
+            teamId = Number(req.body.teamId);
+            if (Number.isNaN(teamId)) teamId = undefined;
+          }
+        }
+      } catch {
+        // si el token es inválido, se ignora y se registra como fan
+      }
+    }
+
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return res.status(409).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const created = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim(),
+        password: hash,
+        role,
+        teamId: teamId ?? undefined,
+      }
+    });
+
+    const token = jwt.sign(
+      { sub: created.id, role: created.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        id: created.id,
+        name: created.name,
+        email: created.email,
+        role: created.role,
+        teamId: created.teamId ?? null,
+      }
+    });
+  } catch (err) {
+    console.error('REGISTER ERROR', err);
+    res.status(500).json({ error: 'Register error' });
   }
 });
 

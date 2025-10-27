@@ -1,19 +1,34 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import { useGetMatchEventsQuery } from '../api';
 
-let Comp: React.ComponentType<any>;
+export default function MatchDetailScreen() {
+  const route = useRoute<any>();
+  const matchId = Number(route.params?.id);
+  const { data: events, isFetching } = useGetMatchEventsQuery(matchId);
 
-if (Platform.OS === 'web') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  Comp = require('./MatchDetailScreen.web').default;
-} else {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    Comp = require('./MatchDetailScreen.native').default;
-  } catch {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    Comp = require('./MatchDetailScreen.web').default;
-  }
+  const group = (type: 'goal'|'yellow'|'red') => (events||[]).filter(e => e.type === type);
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+      <Text style={{ fontWeight:'bold', fontSize: 18, marginBottom: 8 }}>Eventos del partido #{matchId}</Text>
+      {isFetching ? <Text>Cargando...</Text> : null}
+
+      <Text style={{ fontWeight:'bold', marginTop:12 }}>Goles</Text>
+      {group('goal').length ? group('goal').map(e => (
+        <Text key={e.id}>Min {e.minute}: {e.team?.name} {e.player ? `- ${e.player.firstName} ${e.player.lastName}` : ''}</Text>
+      )) : <Text style={{ color:'#666' }}>Sin goles</Text>}
+
+      <Text style={{ fontWeight:'bold', marginTop:12 }}>Tarjetas amarillas</Text>
+      {group('yellow').length ? group('yellow').map(e => (
+        <Text key={e.id}>Min {e.minute}: {e.team?.name} {e.player ? `- ${e.player.firstName} ${e.player.lastName}` : ''}</Text>
+      )) : <Text style={{ color:'#666' }}>Sin amarillas</Text>}
+
+      <Text style={{ fontWeight:'bold', marginTop:12 }}>Tarjetas rojas</Text>
+      {group('red').length ? group('red').map(e => (
+        <Text key={e.id}>Min {e.minute}: {e.team?.name} {e.player ? `- ${e.player.firstName} ${e.player.lastName}` : ''}</Text>
+      )) : <Text style={{ color:'#666' }}>Sin rojas</Text>}
+    </ScrollView>
+  );
 }
-
-export default Comp;

@@ -41,4 +41,60 @@ router.get('/top-scorers', async (_req, res) => {
   res.json(result);
 });
 
+// NUEVO: tarjetas por jugador
+router.get('/cards-by-player', async (_req, res) => {
+  const yellows = await prisma.matchEvent.groupBy({
+    by: ['playerId'],
+    where: { type: 'yellow', playerId: { not: null } },
+    _count: { _all: true },
+  });
+  const reds = await prisma.matchEvent.groupBy({
+    by: ['playerId'],
+    where: { type: 'red', playerId: { not: null } },
+    _count: { _all: true },
+  });
+  const ids = Array.from(new Set([...yellows.map(y=>y.playerId!), ...reds.map(r=>r.playerId!)]));
+  const players = await prisma.player.findMany({ where: { id: { in: ids } }, include: { team: true } });
+
+  const yellowMap = new Map(yellows.map(y => [y.playerId!, y._count._all]));
+  const redMap = new Map(reds.map(r => [r.playerId!, r._count._all]));
+
+  const result = ids.map(id => {
+    const p = players.find(pl => pl.id === id)!;
+    const y = yellowMap.get(id) || 0;
+    const r = redMap.get(id) || 0;
+    return { playerId: id, name: `${p.firstName} ${p.lastName}`, team: p.team.name, yellow: y, red: r, total: y + r };
+  }).sort((a,b)=> b.total - a.total || b.red - a.red || b.yellow - a.yellow);
+
+  res.json(result);
+});
+
+// NUEVO: tarjetas por equipo
+router.get('/cards-by-team', async (_req, res) => {
+  const yellows = await prisma.matchEvent.groupBy({
+    by: ['teamId'],
+    where: { type: 'yellow' },
+    _count: { _all: true },
+  });
+  const reds = await prisma.matchEvent.groupBy({
+    by: ['teamId'],
+    where: { type: 'red' },
+    _count: { _all: true },
+  });
+  const ids = Array.from(new Set([...yellows.map(y=>y.teamId), ...reds.map(r=>r.teamId)]));
+  const teams = await prisma.team.findMany({ where: { id: { in: ids } } });
+
+  const yellowMap = new Map(yellows.map(y => [y.teamId, y._count._all]));
+  const redMap = new Map(reds.map(r => [r.teamId, r._count._all]));
+
+  const result = ids.map(id => {
+    const t = teams.find(tt => tt.id === id)!;
+    const y = yellowMap.get(id) || 0;
+    const r = redMap.get(id) || 0;
+    return { teamId: id, teamName: t.name, yellow: y, red: r, total: y + r };
+  }).sort((a,b)=> b.total - a.total || b.red - a.red || b.yellow - a.yellow);
+
+  res.json(result);
+});
+
 export default router;

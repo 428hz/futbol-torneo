@@ -7,7 +7,7 @@ import {
   useCreatePlayerMutation,
   useUpdatePlayerMutation,
   useDeletePlayerMutation
-} from '../../api'; 
+} from '../../api';
 import PromptDialog from '../../components/PromptDialog';
 
 const POSICIONES = ['Arquero', 'Defensor', 'Mediocampista', 'Delantero'];
@@ -60,8 +60,20 @@ export default function PlayersAdminScreen() {
     try {
       const nf = (values.firstName ?? '').trim();
       const nl = (values.lastName ?? '').trim();
+      const pos = (values.position ?? '').trim();
+      const ageStr = (values.age ?? '').trim();
+      const numStr = (values.jerseyNumber ?? '').trim();
+      const teamStr = (values.teamId ?? '').trim();
+
       if (!nf || !nl) return Alert.alert('Faltan datos', 'Nombre y apellido son obligatorios.');
-      await updatePlayer({ id: editing.id, firstName: nf, lastName: nl }).unwrap();
+
+      const payload: any = { id: editing.id, firstName: nf, lastName: nl };
+      if (pos) payload.position = pos;
+      if (ageStr !== '') payload.age = Number(ageStr);
+      if (numStr !== '') payload.jerseyNumber = Number(numStr);
+      if (teamStr !== '') payload.teamId = Number(teamStr);
+
+      await updatePlayer(payload).unwrap();
       setEditVisible(false);
       setEditing(null);
       refetch();
@@ -126,8 +138,19 @@ export default function PlayersAdminScreen() {
         fields={[
           { key: 'firstName', label: 'Nombre' },
           { key: 'lastName', label: 'Apellido' },
+          { key: 'position', label: 'Posición (Arquero/Defensor/Mediocampista/Delantero)' },
+          { key: 'age', label: 'Edad', keyboardType: 'numeric' },
+          { key: 'jerseyNumber', label: 'N° de casaca', keyboardType: 'numeric' },
+          { key: 'teamId', label: 'Team ID', keyboardType: 'numeric' },
         ]}
-        initialValues={{ firstName: editing?.firstName, lastName: editing?.lastName }}
+        initialValues={{
+          firstName: editing?.firstName,
+          lastName: editing?.lastName,
+          position: editing?.position,
+          age: editing?.age?.toString?.() ?? '',
+          jerseyNumber: editing?.jerseyNumber?.toString?.() ?? '',
+          teamId: editing?.teamId?.toString?.() ?? '',
+        }}
         onCancel={() => { setEditVisible(false); setEditing(null); }}
         onSubmit={submitEdit}
         confirmText="Guardar"

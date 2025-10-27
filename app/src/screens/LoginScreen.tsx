@@ -1,20 +1,18 @@
 import React from 'react';
-import { View, Text, TextInput, Button, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, Button, Alert } from 'react-native';
 import { setToken } from '../api'; // IMPORTANTE: antes era '../services/api'
 import { API_URL } from '../config';
-import * as Notifications from 'expo-notifications';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
-
-async function getPushToken(): Promise<string | undefined> {
-  if (Platform.OS === 'web') return undefined;
-  try { return (await Notifications.getExpoPushTokenAsync()).data; } catch { return undefined; }
-}
+import { usePushToken } from '../context/PushTokenContext';
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = React.useState('admin@test.com');
   const [password, setPassword] = React.useState('123456');
   const [loading, setLoading] = React.useState(false);
+
+  // Push token obtenido por el registrador global (App.tsx)
+  const { pushToken } = usePushToken();
 
   const googleExtra =
     (Constants?.expoConfig as any)?.extra?.google ||
@@ -32,11 +30,11 @@ export default function LoginScreen({ navigation }: any) {
         const idToken = response.authentication?.idToken;
         if (!idToken) { Alert.alert('Error', 'No se recibió idToken de Google'); return; }
         try {
-          const pushToken = await getPushToken();
           const res = await fetch(`${API_URL}/auth/google/token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken, pushToken }),
+            // Nota: si pushToken es null/undefined, JSON.stringify lo omite
+            body: JSON.stringify({ idToken, pushToken: pushToken ?? undefined }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data?.error || `Google login failed (${res.status})`);
@@ -52,16 +50,15 @@ export default function LoginScreen({ navigation }: any) {
       }
     };
     handleGoogle();
-  }, [response]);
+  }, [response, pushToken]);
 
   const onLogin = async () => {
     try {
       setLoading(true);
-      const pushToken = await getPushToken();
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, pushToken }),
+        body: JSON.stringify({ email, password, pushToken: pushToken ?? undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Login failed (${res.status})`);
@@ -81,10 +78,20 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <View style={{ padding: 16 }}>
       <Text style={{ fontSize: 28, fontWeight: 'bold', marginBottom: 16 }}>Iniciar sesión</Text>
-      <TextInput placeholder="Email" autoCapitalize="none" value={email} onChangeText={setEmail}
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 8 }} />
-      <TextInput placeholder="Contraseña" secureTextEntry value={password} onChangeText={setPassword}
-        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 16 }} />
+      <TextInput
+        placeholder="Email"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
+        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 8 }}
+      />
+      <TextInput
+        placeholder="Contraseña"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        style={{ borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 16 }}
+      />
       <Button title={loading ? 'Ingresando...' : 'Ingresar'} onPress={onLogin} />
       <View style={{ height: 16 }} />
       <Button title={'Continuar con Google'} onPress={() => promptAsync()} disabled={!request} />

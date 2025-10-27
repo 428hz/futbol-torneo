@@ -1,0 +1,15 @@
+{
+  "cli": {
+    "version": ">= 3.17.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "android": { "buildType": "apk" }
+    },
+    "production": {
+      "android": { "gradleCommand": ":app:bundleRelease" }
+    }
+  },
+  "submit": {}
+}

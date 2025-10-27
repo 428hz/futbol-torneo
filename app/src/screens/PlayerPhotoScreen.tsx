@@ -1,44 +1,60 @@
 import React from 'react';
-import { View, Button, Image, Alert } from 'react-native';
+import { View, Text, Button, Image, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../config';
 
 export default function PlayerPhotoScreen({ route }: any) {
-  const { playerId, token } = route.params;
-  const [image, setImage] = React.useState<string | null>(null);
+  const playerId = route?.params?.id;
+  const [uri, setUri] = React.useState<string | null>(null);
 
-  const pickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
-    if (!res.canceled) setImage(res.assets[0].uri);
+  const pickFromLibrary = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permiso requerido', 'Necesitamos acceso a la galería');
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    if (!res.canceled) setUri(res.assets[0].uri);
   };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permiso', 'Se necesita permiso de cámara');
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-    if (!res.canceled) setImage(res.assets[0].uri);
+    if (status !== 'granted') return Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara');
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (!res.canceled) setUri(res.assets[0].uri);
   };
 
   const upload = async () => {
-    if (!image) return;
-    const form = new FormData();
-    form.append('file', { uri: image, name: 'photo.jpg', type: 'image/jpeg' } as any);
-    const r = await fetch(`${API_URL}/players/${playerId}/photo`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form
-    });
-    if (r.ok) Alert.alert('OK', 'Foto actualizada'); else Alert.alert('Error', 'No se pudo subir');
+    try {
+      if (!uri) return;
+      const form = new FormData();
+      const filename = uri.split('/').pop() || 'photo.jpg';
+      const type = 'image/jpeg';
+      form.append('file', { uri, name: filename, type } as any);
+
+      // lee token de localStorage (web) o usa setToken pre-configurada en tu api
+      let token: string | null = null;
+      try { token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null; } catch {}
+
+      const res = await fetch(`${API_URL}/players/${playerId}/photo`, {
+        method: 'POST',
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: form,
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok) throw new Error(data?.error || `Upload failed (${res.status})`);
+      Alert.alert('Listo', 'Foto actualizada');
+    } catch (e:any) {
+      Alert.alert('Error', e?.message || 'No se pudo subir la foto');
+    }
   };
 
   return (
     <View style={{ padding: 16 }}>
-      {image ? <Image source={{ uri: image }} style={{ width: 200, height: 200, marginBottom: 12 }} /> : null}
-      <Button title="Tomar foto" onPress={takePhoto} />
-      <View style={{ height: 8 }} />
-      <Button title="Elegir de galería" onPress={pickImage} />
-      <View style={{ height: 8 }} />
-      <Button title="Subir" onPress={upload} />
+      <Text style={{ fontWeight:'bold', fontSize:18, marginBottom:8 }}>Foto del jugador #{playerId}</Text>
+      {uri ? <Image source={{ uri }} style={{ width: 240, height: 240, borderRadius: 6, marginBottom: 12 }} /> : <Text style={{ color:'#666', marginBottom: 12 }}>Sin imagen seleccionada</Text>}
+      <View style={{ flexDirection:'row', gap: 8, marginBottom: 8 }}>
+        <Button title="Tomar foto" onPress={takePhoto} />
+        <Button title="Elegir de galería" onPress={pickFromLibrary} />
+      </View>
+      <Button title="Subir" onPress={upload} disabled={!uri} />
     </View>
   );
 }

@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, TextInput, Button, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, Button, Alert, ScrollView, Modal } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import {
   useGetUsersQuery,
   useRegisterMutation,
   useUpdateUserMutation,
   useDeleteUserMutation,
-} from '../../api'; // IMPORTANTE: antes estaba '../../services/api'
+  useGetTeamsQuery,
+} from '../../api';
 import ConfirmDialog from '../../components/ConfirmDialog';
-import PromptDialog from '../../components/PromptDialog';
 
 export default function UsersAdminScreen() {
   const { data: users, refetch, isFetching, isError } = useGetUsersQuery();
+  const { data: teams } = useGetTeamsQuery();
   const [register, { isLoading: creating }] = useRegisterMutation();
   const [updateUser] = useUpdateUserMutation();
   const [deleteUser] = useDeleteUserMutation();
@@ -20,14 +22,17 @@ export default function UsersAdminScreen() {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [role, setRole] = React.useState<'admin'|'player'|'fan'>('fan');
-  const [teamId, setTeamId] = React.useState('');
+  const [teamId, setTeamId] = React.useState<number | undefined>(undefined);
 
-  // Modales
+  // Eliminar
   const [confirmVisible, setConfirmVisible] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: number; name: string } | null>(null);
 
+  // Editar
   const [editVisible, setEditVisible] = React.useState(false);
   const [editing, setEditing] = React.useState<any | null>(null);
+  const [editRole, setEditRole] = React.useState<'admin'|'player'|'fan'>('fan');
+  const [editTeamId, setEditTeamId] = React.useState<number | null>(null);
 
   const onCreate = async () => {
     try {
@@ -39,9 +44,9 @@ export default function UsersAdminScreen() {
         email: email.trim(),
         password: password.trim(),
         role,
-        teamId: teamId ? Number(teamId) : undefined,
+        teamId: teamId ?? undefined,
       }).unwrap();
-      setName(''); setEmail(''); setPassword(''); setRole('fan'); setTeamId('');
+      setName(''); setEmail(''); setPassword(''); setRole('fan'); setTeamId(undefined);
       refetch();
     } catch (e: any) {
       Alert.alert('Error', e?.data?.error || 'No se pudo crear usuario');
@@ -50,77 +55,100 @@ export default function UsersAdminScreen() {
 
   const openEdit = (u: any) => {
     setEditing(u);
+    setEditRole(u.role);
+    setEditTeamId(u.teamId ?? null);
     setEditVisible(true);
   };
 
-  const submitEdit = async (values: Record<string, string>) => {
+  const submitEdit = async () => {
     try {
-      const newRole = (values.role ?? '').trim() as 'admin'|'player'|'fan';
-      if (!['admin','player','fan'].includes(newRole)) {
-        return Alert.alert('Rol inválido', 'Usá admin, player o fan.');
-      }
-      const teamStr = (values.teamId ?? '').trim();
-      const newTeamId = teamStr === '' ? null : Number(teamStr);
-      if (teamStr !== '' && !Number.isFinite(newTeamId as number)) {
-        return Alert.alert('Team ID inválido', 'Debe ser un número o vacío.');
-      }
-      await updateUser({ id: editing.id, role: newRole, teamId: newTeamId }).unwrap();
+      await updateUser({ id: editing.id, role: editRole, teamId: editTeamId }).unwrap();
       setEditVisible(false); setEditing(null);
       refetch();
-    } catch (e: any) {
-      Alert.alert('Error', e?.data?.error || 'No se pudo actualizar');
-    }
+    } catch (e:any) { Alert.alert('Error', e?.data?.error || 'No se pudo actualizar'); }
   };
 
   const askDelete = (u: any) => { setPendingDelete({ id: u.id, name: u.name }); setConfirmVisible(true); };
   const doDelete = async () => {
     if (!pendingDelete) return;
-    try {
-      await deleteUser(pendingDelete.id).unwrap();
-      setConfirmVisible(false); setPendingDelete(null);
-      refetch();
-    } catch (e:any) {
-      setConfirmVisible(false);
-      Alert.alert('Error', e?.data?.error || 'No se pudo eliminar');
-    }
+    try { await deleteUser(pendingDelete.id).unwrap(); setConfirmVisible(false); setPendingDelete(null); refetch(); }
+    catch (e:any) { setConfirmVisible(false); Alert.alert('Error', e?.data?.error || 'No se pudo eliminar'); }
   };
 
   return (
-    <View style={{ padding: 16 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
       <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Crear usuario</Text>
       <TextInput placeholder="Nombre" value={name} onChangeText={setName} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
       <TextInput placeholder="Email" autoCapitalize="none" value={email} onChangeText={setEmail} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
       <TextInput placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
-      <TextInput placeholder="Rol (admin/player/fan)" value={role} onChangeText={(t)=>setRole(t as any)} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
-      <TextInput placeholder="Team ID (opcional)" keyboardType="numeric" value={teamId} onChangeText={setTeamId} style={{ borderWidth: 1, padding: 8, marginBottom: 6 }} />
+
+      <Text style={{ marginTop: 6, marginBottom: 4 }}>Rol</Text>
+      <View style={{ borderWidth:1, borderColor:'#ccc', borderRadius:6, height:40, justifyContent:'center', paddingHorizontal:6, marginBottom:6 }}>
+        <Picker selectedValue={role} onValueChange={(v)=> setRole(v)} style={{ height: 36 }}>
+          <Picker.Item label="fan" value="fan" />
+          <Picker.Item label="player" value="player" />
+          <Picker.Item label="admin" value="admin" />
+        </Picker>
+      </View>
+
+      <Text style={{ marginTop: 6, marginBottom: 4 }}>Equipo (opcional)</Text>
+      <View style={{ borderWidth:1, borderColor:'#ccc', borderRadius:6, height:40, justifyContent:'center', paddingHorizontal:6, marginBottom:6 }}>
+        <Picker selectedValue={teamId} onValueChange={(v)=> setTeamId(v === undefined ? undefined : Number(v))} style={{ height: 36 }}>
+          <Picker.Item label="(ninguno)" value={undefined} />
+          {(teams||[]).map((t:any)=> <Picker.Item key={t.id} label={t.name} value={t.id} />)}
+        </Picker>
+      </View>
+
       <Button title={creating ? 'Creando...' : 'Crear'} onPress={onCreate} />
 
       <Text style={{ fontWeight: 'bold', fontSize: 18, marginVertical: 12 }}>Listado</Text>
-
       {isError ? (
         <View>
-          <Text style={{ color:'#c00' }}>No se pudieron cargar los usuarios (¿token?).</Text>
+          <Text style={{ color:'#c00' }}>No se pudieron cargar los usuarios.</Text>
           <Text onPress={refetch} style={{ color:'#1677ff', marginTop: 6 }}>Reintentar</Text>
         </View>
       ) : null}
 
-      <FlatList
-        refreshing={isFetching}
-        onRefresh={refetch}
-        data={users || []}
-        keyExtractor={(u) => String(u.id)}
-        renderItem={({ item }) => (
-          <View style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
-            <Text>#{item.id} {item.name} - {item.email} - rol: {item.role} - teamId: {String(item.teamId ?? '')}</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-              <Button title="Editar" onPress={() => openEdit(item)} />
-              <Button title="Eliminar" color="#c00" onPress={() => askDelete(item)} />
+      {(users || []).map((item:any) => (
+        <View key={item.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderColor: '#eee' }}>
+          <Text>#{item.id} {item.name} - {item.email} - rol: {item.role} - teamId: {String(item.teamId ?? '')}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, flexWrap:'wrap' }}>
+            <Button title="Editar" onPress={() => openEdit(item)} />
+            <Button title="Eliminar" color="#c00" onPress={() => askDelete(item)} />
+          </View>
+        </View>
+      ))}
+
+      {/* Modal de edición con Pickers */}
+      <Modal visible={editVisible} transparent animationType="fade" onRequestClose={()=> setEditVisible(false)}>
+        <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.35)', justifyContent:'center', padding:16 }}>
+          <View style={{ backgroundColor:'#fff', borderRadius:12, padding:16 }}>
+            <Text style={{ fontWeight:'bold', fontSize:18, marginBottom:12 }}>Editar usuario</Text>
+
+            <Text style={{ marginBottom:4 }}>Rol</Text>
+            <View style={{ borderWidth:1, borderColor:'#ccc', borderRadius:6, height:40, justifyContent:'center', paddingHorizontal:6, marginBottom:8 }}>
+              <Picker selectedValue={editRole} onValueChange={(v)=> setEditRole(v)} style={{ height: 36 }}>
+                <Picker.Item label="fan" value="fan" />
+                <Picker.Item label="player" value="player" />
+                <Picker.Item label="admin" value="admin" />
+              </Picker>
+            </View>
+
+            <Text style={{ marginBottom:4 }}>Equipo (opcional)</Text>
+            <View style={{ borderWidth:1, borderColor:'#ccc', borderRadius:6, height:40, justifyContent:'center', paddingHorizontal:6, marginBottom:12 }}>
+              <Picker selectedValue={editTeamId ?? undefined} onValueChange={(v)=> setEditTeamId(v === undefined ? null : Number(v))} style={{ height: 36 }}>
+                <Picker.Item label="(ninguno)" value={undefined} />
+                {(teams||[]).map((t:any)=> <Picker.Item key={t.id} label={t.name} value={t.id} />)}
+              </Picker>
+            </View>
+
+            <View style={{ flexDirection:'row', gap:8, justifyContent:'flex-end' }}>
+              <Button title="Cancelar" onPress={()=> { setEditVisible(false); setEditing(null); }} />
+              <Button title="Guardar" onPress={submitEdit} />
             </View>
           </View>
-        )}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        ListEmptyComponent={!isFetching && !isError ? <Text style={{ color:'#666' }}>No hay usuarios</Text> : null}
-      />
+        </View>
+      </Modal>
 
       <ConfirmDialog
         visible={confirmVisible}
@@ -129,20 +157,6 @@ export default function UsersAdminScreen() {
         onConfirm={doDelete}
         onCancel={() => { setConfirmVisible(false); setPendingDelete(null); }}
       />
-
-      <PromptDialog
-        visible={editVisible}
-        title="Editar usuario"
-        fields={[
-          { key: 'role', label: 'Rol (admin/player/fan)' },
-          { key: 'teamId', label: 'Team ID (vacío para ninguno)', keyboardType: 'numeric' },
-        ]}
-        initialValues={{ role: editing?.role, teamId: editing?.teamId ?? '' }}
-        onCancel={() => { setEditVisible(false); setEditing(null); }}
-        onSubmit={submitEdit}
-        confirmText="Guardar"
-        cancelText="Cancelar"
-      />
-    </View>
+    </ScrollView>
   );
 }
