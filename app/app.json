@@ -11,19 +11,30 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "2.1.21",
             "minSdkVersion": 24
           }
         }
       ],
-      ["expo-notifications", {}]
+      [
+        "expo-notifications",
+        {}
+      ],
+      "expo-web-browser"
     ],
-    "ios": { "supportsTablet": false },
+    "ios": {
+      "supportsTablet": false
+    },
     "android": {
       "package": "com.tuorg.futboltorneo",
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"]
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
-    "web": { "bundler": "metro" },
+    "web": {
+      "bundler": "metro"
+    },
     "extra": {
       "google": {
         "expoClientId": "206638731687-fde99gmkh0tccbsrql5cq1p69mb96mb6.apps.googleusercontent.com",
@@ -31,7 +42,9 @@
         "androidClientId": "479977776201-g0ssvnha60m8pc3ssasf1gofaolso85l.apps.googleusercontent.com",
         "webClientId": "206638731687-fde99gmkh0tccbsrql5cq1p69mb96mb6.apps.googleusercontent.com"
       },
-      "eas": { "projectId": "c48630b9-0a85-4bfc-94c4-713ee1fab46d" }
+      "eas": {
+        "projectId": "c48630b9-0a85-4bfc-94c4-713ee1fab46d"
+      }
     },
     "owner": "ianiam"
   }
