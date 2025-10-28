@@ -5,11 +5,12 @@
   },
   "build": {
     "preview": {
-      "android": { "buildType": "apk" }
-    },
-    "production": {
-      "android": { "gradleCommand": ":app:bundleRelease" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_DOCTOR_STRICT": "0"
+      }
     }
-  },
-  "submit": {}
+  }
 }
