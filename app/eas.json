@@ -1,16 +1,9 @@
 {
-  "cli": {
-    "version": ">= 3.17.0",
-    "appVersionSource": "remote"
-  },
+  "cli": { "version": ">= 3.17.0", "appVersionSource": "remote" },
   "build": {
     "preview": {
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_DOCTOR_STRICT": "0"
-      }
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_DOCTOR_STRICT": "0" }
     }
   }
 }
