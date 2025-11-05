@@ -29,12 +29,14 @@ router.get('/', async (_req, res) => {
   res.json(mapped.sort((a,b)=> b.stats.points - a.stats.points || b.stats.gd - a.stats.gd));
 });
 
+// Crear (admin)
 router.post('/', requireAuth, requireRole(['admin']), async (req, res) => {
   const { name, crestUrl } = req.body;
   const team = await prisma.team.create({ data: { name, crestUrl } });
   res.status(201).json(team);
 });
 
+// Actualizar (admin)
 router.put('/:id', requireAuth, requireRole(['admin']), async (req, res) => {
   const id = Number(req.params.id);
   const { name, crestUrl } = req.body;
@@ -42,15 +44,50 @@ router.put('/:id', requireAuth, requireRole(['admin']), async (req, res) => {
   res.json(team);
 });
 
+// Eliminar (admin)
 router.delete('/:id', requireAuth, requireRole(['admin']), async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.team.delete({ where: { id } });
     res.status(204).send();
   } catch (e) {
-    console.error(e); // Opcional: para ver el error en la consola del backend
+    console.error(e);
     res.status(500).json({ error: 'No se pudo borrar el equipo.' });
   }
+});
+
+// NUEVO: seguir equipo (fan/player/admin)
+router.post('/:id/follow', requireAuth, async (req: any, res) => {
+  const teamId = Number(req.params.id);
+  const userId = req.user!.id;
+
+  await prisma.follower.upsert({
+    where: { userId_teamId: { userId, teamId } },
+    create: { userId, teamId },
+    update: {},
+  });
+
+  res.json({ following: true });
+});
+
+// NUEVO: dejar de seguir
+router.delete('/:id/follow', requireAuth, async (req: any, res) => {
+  const teamId = Number(req.params.id);
+  const userId = req.user!.id;
+
+  try {
+    await prisma.follower.delete({ where: { userId_teamId: { userId, teamId } } });
+  } catch {
+    // si no existía, no pasa nada
+  }
+  res.status(204).send();
+});
+
+// NUEVO: cantidad de seguidores de un equipo
+router.get('/:id/followers', async (req, res) => {
+  const teamId = Number(req.params.id);
+  const count = await prisma.follower.count({ where: { teamId } });
+  res.json({ teamId, followers: count });
 });
 
 export default router;

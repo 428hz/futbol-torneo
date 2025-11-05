@@ -10,7 +10,9 @@ import stats from './stats';
 import venues from './venues';
 import notifications from './notifications';
 import playersUpload from './players-upload';
-import matchEvents from './match-event'; // archivo singular
+import matchEvents from './match-event';
+import profilePhoto from './profile-photo';
+import me from './me';
 
 const router = Router();
 
@@ -19,6 +21,7 @@ router.get('/', (_req, res) => {
     status: 'ok',
     resources: [
       { path: '/auth/login', method: 'POST' },
+      { path: '/auth/me', method: 'GET' },
       { path: '/users', method: 'GET' },
       { path: '/teams', method: 'GET' },
       { path: '/players', method: 'GET' },
@@ -29,7 +32,10 @@ router.get('/', (_req, res) => {
   });
 });
 
+// MUY IMPORTANTE: montar primero /auth/me antes de /auth
+router.use('/auth/me', me);
 router.use('/auth', auth);
+
 router.use('/users', users);
 router.use('/teams', teams);
 router.use('/players', players);
@@ -37,9 +43,9 @@ router.use('/matches', matches);
 router.use('/stats', stats);
 router.use('/venues', venues);
 router.use('/notifications', notifications);
-router.use('/upload', playersUpload);
 
-// Eventos bajo /matches/:id/events
+router.use('/upload', playersUpload);     // /upload/:id/photo (jugadores)
+router.use('/profile', profilePhoto);     // /profile/photo (perfil del usuario)
 router.use('/matches', matchEvents);
 
 export default router;

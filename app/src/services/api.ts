@@ -2,8 +2,21 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { API_URL } from '../config';
 
 let token: string | null = null;
+
+// Bootstrap del token en Web para que Admin respete sesión tras recarga/incógnito
+if (typeof window !== 'undefined') {
+  try {
+    const stored = window.localStorage.getItem('token');
+    if (stored) token = stored;
+  } catch {}
+}
+
 export const setToken = (t: string | null) => { token = t; };
-if (typeof window !== 'undefined') { (window as any).setToken = setToken; }
+export const getToken = () => token;
+export const clearToken = () => {
+  token = null;
+  try { if (typeof window !== 'undefined') window.localStorage.removeItem('token'); } catch {}
+};
 
 export const api = createApi({
   reducerPath: 'api',
@@ -20,7 +33,7 @@ export const api = createApi({
     login: builder.mutation<{ token: string; user: any }, { email: string; password: string; pushToken?: string }>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body })
     }),
-    register: builder.mutation<{ token: string; user: any }, any>({
+    register: builder.mutation<{ token: string; user: any }, { name: string; email: string; password: string }>({
       query: (body) => ({ url: '/auth/register', method: 'POST', body })
     }),
     googleLogin: builder.mutation<{ token: string; user: any }, { idToken: string; pushToken?: string }>({
@@ -40,7 +53,7 @@ export const api = createApi({
       query: () => '/venues',
       providesTags: (r) => r ? [...r.map((v:any)=>({type:'Venues' as const,id:v.id})),{type:'Venues',id:'LIST'}] : [{type:'Venues',id:'LIST'}]
     }),
-    createVenue: builder.mutation<any, { name: string; address: string; latitude: number; longitude: number }>({
+    createVenue: builder.mutation<any, { name: string; address?: string; latitude: number; longitude: number }>({
       query: (body) => ({ url: '/venues', method: 'POST', body }),
       invalidatesTags: [{ type: 'Venues', id: 'LIST' }]
     }),
@@ -101,11 +114,10 @@ export const api = createApi({
         { type:'Players', id }, { type:'Players', id:'LIST' }, { type:'Stats', id:'TOPSCORERS' }
       ]
     }),
-
-    // Usuarios, Equipos… (resto igual si ya lo tenías)
   })
 });
 
+// Hooks
 export const {
   useLoginMutation,
   useRegisterMutation,

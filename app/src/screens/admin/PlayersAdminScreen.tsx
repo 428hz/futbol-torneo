@@ -1,168 +1,260 @@
 import React from 'react';
-import { View, Text, TextInput, Button, Alert, ScrollView, StyleSheet } from 'react-native';
+import {
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, FlatList, Alert, Image,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Picker } from '@react-native-picker/picker';
 import {
   useGetPlayersQuery,
   useGetTeamsQuery,
   useCreatePlayerMutation,
   useUpdatePlayerMutation,
-  useDeletePlayerMutation
-} from '../../api';
-import PromptDialog from '../../components/PromptDialog';
+  useDeletePlayerMutation,
+} from '../../services/api';
+import { API_URL } from '../../config';
 
-const POSICIONES = ['Arquero', 'Defensor', 'Mediocampista', 'Delantero'];
+type PlayerForm = {
+  id?: number;
+  firstName: string;
+  lastName: string;
+  age: string;
+  position: string;
+  jerseyNumber: string;
+  teamId: string;
+};
+
+const POSITIONS = ['Arquero', 'Defensor', 'Mediocampista', 'Delantero'];
 
 export default function PlayersAdminScreen() {
-  const { data: players, refetch, isError } = useGetPlayersQuery();
-  const { data: teams } = useGetTeamsQuery();
-
-  const [firstName, setFirstName] = React.useState('');
-  const [lastName, setLastName] = React.useState('');
-  const [age, setAge] = React.useState('');
-  const [position, setPosition] = React.useState<string | undefined>(undefined);
-  const [jerseyNumber, setJerseyNumber] = React.useState('');
-  const [teamId, setTeamId] = React.useState<number | undefined>(undefined);
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { data: players = [], isLoading: loadingPlayers, refetch } = useGetPlayersQuery();
+  const { data: teams = [], isLoading: loadingTeams } = useGetTeamsQuery();
 
   const [createPlayer, { isLoading: creating }] = useCreatePlayerMutation();
-  const [updatePlayer] = useUpdatePlayerMutation();
-  const [deletePlayer] = useDeletePlayerMutation();
+  const [updatePlayer, { isLoading: updating }] = useUpdatePlayerMutation();
+  const [deletePlayer, { isLoading: deleting }] = useDeletePlayerMutation();
 
-  // Modal para editar
-  const [editVisible, setEditVisible] = React.useState(false);
-  const [editing, setEditing] = React.useState<any | null>(null);
+  const [editing, setEditing] = React.useState<PlayerForm | null>(null);
 
-  const onCreate = async () => {
-    try {
-      if (!firstName.trim() || !lastName.trim()) return Alert.alert('Faltan datos', 'Nombre y apellido son obligatorios.');
-      if (!position) return Alert.alert('Falta posición', 'Seleccioná una posición.');
-      if (!teamId) return Alert.alert('Falta equipo', 'Seleccioná un equipo.');
-      await createPlayer({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        age: Number(age || 0),
-        position,
-        jerseyNumber: Number(jerseyNumber || 0),
-        teamId: Number(teamId),
-      }).unwrap();
-      setFirstName(''); setLastName(''); setAge(''); setPosition(undefined); setJerseyNumber(''); setTeamId(undefined);
-      refetch();
-    } catch (e: any) {
-      Alert.alert('Error', e?.data?.error || 'No se pudo crear');
-    }
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={() => navigation.navigate('AdminPlayerPhoto')} style={{ paddingHorizontal: 8 }}>
+          <Text style={{ color: '#1e90ff', fontWeight: 'bold' }}>Subir foto</Text>
+        </Pressable>
+      ),
+      title: 'Jugadores (ABM)',
+    });
+  }, [navigation]);
+
+  const startNew = () => {
+    setEditing({
+      firstName: '',
+      lastName: '',
+      age: '',
+      position: POSITIONS[0],
+      jerseyNumber: '',
+      teamId: teams?.[0]?.id ? String(teams[0].id) : '',
+    });
   };
 
-  const openEdit = (p: any) => {
-    setEditing(p);
-    setEditVisible(true);
+  const startEdit = (p: any) => {
+    setEditing({
+      id: p.id,
+      firstName: p.firstName ?? '',
+      lastName: p.lastName ?? '',
+      age: String(p.age ?? ''),
+      position: p.position ?? POSITIONS[0],
+      jerseyNumber: String(p.jerseyNumber ?? ''),
+      teamId: String(p.teamId ?? ''),
+    });
   };
 
-  const submitEdit = async (values: Record<string, string>) => {
+  const cancel = () => setEditing(null);
+
+  const save = async () => {
     try {
-      const nf = (values.firstName ?? '').trim();
-      const nl = (values.lastName ?? '').trim();
-      const pos = (values.position ?? '').trim();
-      const ageStr = (values.age ?? '').trim();
-      const numStr = (values.jerseyNumber ?? '').trim();
-      const teamStr = (values.teamId ?? '').trim();
+      if (!editing) return;
+      const age = Number(editing.age);
+      const jerseyNumber = Number(editing.jerseyNumber);
+      const teamId = Number(editing.teamId);
+      if (!editing.firstName?.trim() || !editing.lastName?.trim()) {
+        Alert.alert('Faltan datos', 'Nombre y Apellido son obligatorios');
+        return;
+      }
+      if (!Number.isFinite(age) || !Number.isFinite(jerseyNumber) || !Number.isFinite(teamId)) {
+        Alert.alert('Datos inválidos', 'Edad, N° de casaca y Team ID deben ser números');
+        return;
+      }
 
-      if (!nf || !nl) return Alert.alert('Faltan datos', 'Nombre y apellido son obligatorios.');
+      if (editing.id) {
+        await updatePlayer({
+          id: editing.id,
+          firstName: editing.firstName.trim(),
+          lastName: editing.lastName.trim(),
+          age,
+          position: editing.position,
+          jerseyNumber,
+          teamId,
+        }).unwrap();
+      } else {
+        await createPlayer({
+          firstName: editing.firstName.trim(),
+          lastName: editing.lastName.trim(),
+          age,
+          position: editing.position,
+          jerseyNumber,
+          teamId,
+        }).unwrap();
+      }
 
-      const payload: any = { id: editing.id, firstName: nf, lastName: nl };
-      if (pos) payload.position = pos;
-      if (ageStr !== '') payload.age = Number(ageStr);
-      if (numStr !== '') payload.jerseyNumber = Number(numStr);
-      if (teamStr !== '') payload.teamId = Number(teamStr);
-
-      await updatePlayer(payload).unwrap();
-      setEditVisible(false);
       setEditing(null);
       refetch();
     } catch (e: any) {
-      Alert.alert('Error', e?.data?.error || 'No se pudo actualizar');
+      console.error('save player error', e);
+      Alert.alert('Error', e?.data?.error || e?.message || 'No se pudo guardar el jugador');
     }
   };
 
-  const onDelete = async (id:number) => {
-    try { await deletePlayer(id).unwrap(); refetch(); }
-    catch (e:any) { Alert.alert('Error', e?.data?.error || 'No se pudo eliminar'); }
+  const remove = (id: number) => {
+    Alert.alert('Confirmar', '¿Eliminar jugador?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePlayer(id).unwrap();
+            refetch();
+          } catch (e: any) {
+            console.error('delete player error', e);
+            Alert.alert('Error', e?.data?.error || e?.message || 'No se pudo eliminar');
+          }
+        },
+      },
+    ]);
   };
 
-  return (
-    <ScrollView contentContainerStyle={{ padding:16, paddingBottom:100 }}>
-      {isError ? <Text style={{ color:'#c00', marginBottom: 8 }}>No se pudo cargar la lista. ¿Backend corriendo?</Text> : null}
-
-      <Text style={{ fontWeight:'bold', fontSize:18, marginBottom:8 }}>Nuevo jugador</Text>
-      <TextInput placeholder="Nombre" value={firstName} onChangeText={setFirstName} style={styles.input} />
-      <TextInput placeholder="Apellido" value={lastName} onChangeText={setLastName} style={styles.input} />
-
-      <Text style={styles.label}>Posición</Text>
-      <View style={styles.pickerBox}>
-        <Picker selectedValue={position} onValueChange={(v)=>setPosition(v)} style={styles.picker}>
-          <Picker.Item label="Seleccioná posición" value={undefined} />
-          {POSICIONES.map((p)=> <Picker.Item key={p} label={p} value={p} />)}
-        </Picker>
-      </View>
-
-      <TextInput placeholder="Edad" keyboardType="numeric" value={age} onChangeText={setAge} style={styles.input} />
-      <TextInput placeholder="N° de casaca" keyboardType="numeric" value={jerseyNumber} onChangeText={setJerseyNumber} style={styles.input} />
-
-      <Text style={styles.label}>Equipo</Text>
-      <View style={styles.pickerBox}>
-        <Picker
-          selectedValue={teamId}
-          onValueChange={(v)=> setTeamId(v === undefined ? undefined : Number(v))}
-          style={styles.picker}
-        >
-          <Picker.Item label="Seleccioná equipo" value={undefined} />
-          {(teams||[]).map((t:any)=> <Picker.Item key={t.id} label={t.name} value={t.id} />)}
-        </Picker>
-      </View>
-
-      <Button title={creating ? 'Agregando...' : 'Agregar'} onPress={onCreate} />
-
-      <Text style={{ fontWeight:'bold', fontSize:18, marginVertical:12 }}>Jugadores</Text>
-      {(players||[]).map((item:any)=>(
-        <View key={item.id} style={{ paddingVertical:8, borderBottomWidth:1, borderColor:'#eee' }}>
-          <Text>#{item.id} {item.firstName} {item.lastName} ({item.position}) - {item.team?.name}</Text>
-          <View style={{ flexDirection:'row', gap:8, marginTop:6 }}>
-            <Button title="Editar" onPress={()=>openEdit(item)} />
-            <Button title="Borrar" color="#c00" onPress={()=>onDelete(item.id)} />
-          </View>
-        </View>
-      ))}
-      <View style={{ height: 40 }} />
-
-      <PromptDialog
-        visible={editVisible}
-        title="Editar jugador"
-        fields={[
-          { key: 'firstName', label: 'Nombre' },
-          { key: 'lastName', label: 'Apellido' },
-          { key: 'position', label: 'Posición (Arquero/Defensor/Mediocampista/Delantero)' },
-          { key: 'age', label: 'Edad', keyboardType: 'numeric' },
-          { key: 'jerseyNumber', label: 'N° de casaca', keyboardType: 'numeric' },
-          { key: 'teamId', label: 'Team ID', keyboardType: 'numeric' },
-        ]}
-        initialValues={{
-          firstName: editing?.firstName,
-          lastName: editing?.lastName,
-          position: editing?.position,
-          age: editing?.age?.toString?.() ?? '',
-          jerseyNumber: editing?.jerseyNumber?.toString?.() ?? '',
-          teamId: editing?.teamId?.toString?.() ?? '',
-        }}
-        onCancel={() => { setEditVisible(false); setEditing(null); }}
-        onSubmit={submitEdit}
-        confirmText="Guardar"
-        cancelText="Cancelar"
+  const Form = () => (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{editing?.id ? 'Editar jugador' : 'Crear jugador'}</Text>
+      <Text>Nombre</Text>
+      <TextInput
+        value={editing?.firstName}
+        onChangeText={(t) => setEditing((s) => ({ ...(s as PlayerForm), firstName: t }))}
+        style={styles.input}
       />
-    </ScrollView>
+      <Text>Apellido</Text>
+      <TextInput
+        value={editing?.lastName}
+        onChangeText={(t) => setEditing((s) => ({ ...(s as PlayerForm), lastName: t }))}
+        style={styles.input}
+      />
+      <Text>Posición (Arquero/Defensor/Mediocampista/Delantero)</Text>
+      <Picker
+        selectedValue={editing?.position}
+        onValueChange={(v) => setEditing((s) => ({ ...(s as PlayerForm), position: String(v) }))}
+      >
+        {POSITIONS.map((p) => <Picker.Item key={p} label={p} value={p} />)}
+      </Picker>
+
+      <Text>Edad</Text>
+      <TextInput
+        value={editing?.age}
+        onChangeText={(t) => setEditing((s) => ({ ...(s as PlayerForm), age: t }))}
+        keyboardType="number-pad"
+        style={styles.input}
+      />
+      <Text>N° de casaca</Text>
+      <TextInput
+        value={editing?.jerseyNumber}
+        onChangeText={(t) => setEditing((s) => ({ ...(s as PlayerForm), jerseyNumber: t }))}
+        keyboardType="number-pad"
+        style={styles.input}
+      />
+
+      <Text>Team ID</Text>
+      <Picker
+        selectedValue={editing?.teamId}
+        onValueChange={(v) => setEditing((s) => ({ ...(s as PlayerForm), teamId: String(v) }))}
+      >
+        {teams.map((t: any) => (
+          <Picker.Item key={t.id} label={`${t.name} (#${t.id})`} value={String(t.id)} />
+        ))}
+      </Picker>
+
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+        <Pressable style={[styles.btn, styles.btnCancel]} onPress={cancel}>
+          <Text style={styles.btnTextWhite}>Cancelar</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btn, styles.btnPrimary]}
+          onPress={save}
+          disabled={creating || updating}
+        >
+          <Text style={styles.btnTextWhite}>{editing?.id ? 'Guardar' : 'Crear'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+      {(loadingPlayers || loadingTeams) && <ActivityIndicator />}
+
+      {!editing && (
+        <Pressable style={[styles.btn, styles.btnPrimary, { marginBottom: 12 }]} onPress={startNew}>
+          <Text style={styles.btnTextWhite}>Nuevo jugador</Text>
+        </Pressable>
+      )}
+
+      {editing ? (
+        <Form />
+      ) : (
+        <FlatList
+          data={players}
+          keyExtractor={(x: any) => String(x.id)}
+          renderItem={({ item }) => (
+            <View style={styles.row}>
+              {item.photoUrl ? (
+                <Image source={{ uri: `${API_URL}${item.photoUrl}` }} style={styles.thumb} />
+              ) : (
+                <View style={[styles.thumb, { backgroundColor: '#ddd' }]} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>{item.firstName} {item.lastName}</Text>
+                <Text style={styles.rowSub}>
+                  {item.position} · #{item.jerseyNumber} · {item.team?.name ?? `Team ${item.teamId}`}
+                </Text>
+              </View>
+              <Pressable style={[styles.smallBtn]} onPress={() => startEdit(item)}>
+                <Text style={styles.smallBtnText}>Editar</Text>
+              </Pressable>
+              <Pressable style={[styles.smallBtn, styles.smallBtnDanger]} onPress={() => remove(item.id)}>
+                <Text style={[styles.smallBtnText, { color: '#fff' }]}>Borrar</Text>
+              </Pressable>
+            </View>
+          )}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  input: { borderWidth:1, borderColor:'#ccc', borderRadius:6, paddingHorizontal:10, height:40, marginBottom:6 },
-  label: { marginTop: 6, marginBottom: 4, color:'#333' },
-  pickerBox: { borderWidth:1, borderColor:'#ccc', borderRadius:6, height:40, justifyContent:'center', paddingHorizontal:6, marginBottom:6 },
-  picker: { height: 36 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 12, elevation: 1 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, borderRadius: 4, marginBottom: 8 },
+  btn: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 6, alignItems: 'center' },
+  btnPrimary: { backgroundColor: '#1e90ff' },
+  btnCancel: { backgroundColor: '#6c757d' },
+  btnTextWhite: { color: '#fff', fontWeight: 'bold' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
+  rowTitle: { fontWeight: 'bold' },
+  rowSub: { color: '#666' },
+  smallBtn: { paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#eee', borderRadius: 4, marginLeft: 6 },
+  smallBtnDanger: { backgroundColor: '#d9534f' },
+  smallBtnText: { fontWeight: 'bold' },
+  thumb: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
 });
